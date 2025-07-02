@@ -19,6 +19,15 @@
         "tsConfigPath": "apps/api-gateway/tsconfig.app.json"
       }
     },
+    "data-processor": {
+      "type": "application",
+      "root": "apps/data-processor",
+      "entryFile": "main",
+      "sourceRoot": "apps/data-processor/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/data-processor/tsconfig.app.json"
+      }
+    },
     "nestJS": {
       "type": "application",
       "root": "apps/nestJS",

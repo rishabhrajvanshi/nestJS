@@ -1,6 +1,23 @@
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
-import { Client } from 'cassandra-driver';
-import { ProcessedData } from 'my/shared';
+import {
+  Injectable,
+  OnModuleInit,
+  OnModuleDestroy,
+  Logger,
+} from '@nestjs/common';
+import { Client, types } from 'cassandra-driver';
+import { v4 as uuidv4 } from 'uuid';
+
+// Internal interface for Cassandra operations (uses Date objects)
+interface CassandraProcessedData {
+  id?: string;
+  name: string;
+  email: string;
+  age: number;
+  processedBy: string;
+  enrichedInfo: string;
+  timestamp: Date | string;
+  processingTimestamp: Date | string;
+}
 
 @Injectable()
 export class CassandraService implements OnModuleInit, OnModuleDestroy {
@@ -57,41 +74,81 @@ export class CassandraService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async saveProcessedData(data: ProcessedData): Promise<string> {
-    const id = this.generateUUID();
-    
+  async saveProcessedData(data: CassandraProcessedData): Promise<string> {
+    const id = uuidv4();
+
     const query = `
       INSERT INTO processed_data (id, name, email, age, processed_by, enriched_info, timestamp, processing_timestamp)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
-    const params = [
-      id,
-      data.name,
-      data.email,
-      data.age,
-      data.processedBy,
-      data.enrichedInfo,
-      data.timestamp || new Date(),
-      data.processingTimestamp,
-    ];
-
     try {
-      await this.client.execute(query, params);
-      this.logger.log(`Data saved with ID: ${id}`);
+      // Ensure age is an integer
+      const age = parseInt(data.age.toString(), 10);
+
+      // Ensure timestamps are Date objects
+      const timestamp =
+        data.timestamp instanceof Date
+          ? data.timestamp
+          : new Date(data.timestamp || Date.now());
+      const processingTimestamp =
+        data.processingTimestamp instanceof Date
+          ? data.processingTimestamp
+          : new Date(data.processingTimestamp || Date.now());
+
+      // Ensure age is a proper 32-bit integer for Cassandra
+      const cassandraAge = Math.floor(Number(age));
+
+      // Validate age is within 32-bit integer range
+      if (cassandraAge < -2147483648 || cassandraAge > 2147483647) {
+        throw new Error(`Age ${cassandraAge} is out of 32-bit integer range`);
+      }
+
+      const params = [
+        types.Uuid.fromString(id),
+        String(data.name),
+        String(data.email),
+        cassandraAge,
+        String(data.processedBy),
+        String(data.enrichedInfo),
+        timestamp,
+        processingTimestamp,
+      ];
+
+      // Execute with prepared statement and explicit type hints
+      const queryOptions = {
+        prepare: true,
+        hints: [
+          'uuid', // id
+          'text', // name
+          'text', // email
+          'int', // age - explicitly specify as 32-bit int
+          'text', // processed_by
+          'text', // enriched_info
+          'timestamp', // timestamp
+          'timestamp', // processing_timestamp
+        ],
+      };
+
+      await this.client.execute(query, params, queryOptions);
+      this.logger.log(`Data saved successfully with ID: ${id}`);
       return id;
     } catch (error) {
-      this.logger.error('Error saving data to Cassandra', error);
-      throw error;
+      this.logger.error(
+        `Error saving data to Cassandra: ${error.message}`,
+        error.stack,
+      );
+      this.logger.error(`Data that failed to save: ${JSON.stringify(data)}`);
+      throw new Error(`Failed to save to database: ${error.message}`);
     }
   }
 
-  async getProcessedData(id: string): Promise<ProcessedData | null> {
+  async getProcessedData(id: string): Promise<CassandraProcessedData | null> {
     const query = 'SELECT * FROM processed_data WHERE id = ?';
 
     try {
       const result = await this.client.execute(query, [id]);
-      
+
       if (result.rows.length === 0) {
         return null;
       }
@@ -113,33 +170,33 @@ export class CassandraService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async getAllProcessedData(): Promise<ProcessedData[]> {
+  async getAllProcessedData(): Promise<CassandraProcessedData[]> {
     const query = 'SELECT * FROM processed_data';
 
     try {
       const result = await this.client.execute(query);
-      
-      return result.rows.map(row => ({
-        id: row.id,
-        name: row.name,
-        email: row.email,
-        age: row.age,
-        processedBy: row.processed_by,
-        enrichedInfo: row.enriched_info,
-        timestamp: row.timestamp,
-        processingTimestamp: row.processing_timestamp,
+
+      if (result.rows.length === 0) {
+        return [];
+      }
+
+      const mappedData = result.rows.map((row) => ({
+        id: row.id?.toString() || '',
+        name: row.name || '',
+        email: row.email || '',
+        age: row.age || 0,
+        processedBy: row.processed_by || '',
+        enrichedInfo: row.enriched_info || '',
+        timestamp: row.timestamp || new Date(),
+        processingTimestamp: row.processing_timestamp || new Date(),
       }));
+      return mappedData;
     } catch (error) {
-      this.logger.error('Error retrieving all data from Cassandra', error);
+      this.logger.error(
+        `Error retrieving all data from Cassandra: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
-  }
-
-  private generateUUID(): string {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-      const r = Math.random() * 16 | 0;
-      const v = c === 'x' ? r : (r & 0x3 | 0x8);
-      return v.toString(16);
-    });
   }
 }

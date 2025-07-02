@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  HttpException,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
 import { ApiGatewayService } from './api-gateway.service';
 
 export class CreateUserDto {
@@ -23,26 +31,29 @@ export class ApiGatewayController {
     return {
       status: 'healthy',
       timestamp: new Date().toISOString(),
-      service: 'api-gateway'
+      service: 'api-gateway',
     };
   }
 
   @Post('users')
   async createUser(@Body() createUserDto: CreateUserDto) {
     try {
-      this.logger.log(`Received user creation request: ${JSON.stringify(createUserDto)}`);
-      
+      this.logger.log(
+        `Received user creation request: ${JSON.stringify(createUserDto)}`,
+      );
+
       // Validate input
       if (!createUserDto.name || !createUserDto.email || !createUserDto.age) {
         throw new HttpException(
-          'Missing required fields: name, email, age', 
-          HttpStatus.BAD_REQUEST
+          'Missing required fields: name, email, age',
+          HttpStatus.BAD_REQUEST,
         );
       }
 
       // Process the request through gRPC
-      const result = await this.apiGatewayService.processUserData(createUserDto);
-      
+      const result =
+        await this.apiGatewayService.processUserData(createUserDto);
+
       return {
         success: true,
         data: result,
@@ -53,7 +64,7 @@ export class ApiGatewayController {
       this.logger.error(`Error processing user data: ${error.message}`);
       throw new HttpException(
         `Failed to process user data: ${error.message}`,
-        HttpStatus.INTERNAL_SERVER_ERROR
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
@@ -72,7 +83,7 @@ export class ApiGatewayController {
       this.logger.error(`Error retrieving users: ${error.message}`);
       throw new HttpException(
         `Failed to retrieve users: ${error.message}`,
-        HttpStatus.INTERNAL_SERVER_ERROR
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }

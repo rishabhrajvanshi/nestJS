@@ -5,13 +5,18 @@ export interface UserData {
   name: string;
   email: string;
   age: number;
-  timestamp?: Date;
+  timestamp?: string;
 }
 
-export interface ProcessedData extends UserData {
+export interface ProcessedData {
+  id: string;
+  name: string;
+  email: string;
+  age: number;
   processedBy: string;
   enrichedInfo: string;
-  processingTimestamp: Date;
+  timestamp: string;
+  processingTimestamp: string;
 }
 
 export interface ApiResponse<T = any> {
@@ -32,4 +37,4 @@ export interface DataProcessingResponse {
   success: boolean;
   processedData?: ProcessedData;
   message?: string;
-} 
+}

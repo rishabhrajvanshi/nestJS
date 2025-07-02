@@ -11,7 +11,9 @@ describe('DataProcessorController', () => {
       providers: [DataProcessorService],
     }).compile();
 
-    dataProcessorController = app.get<DataProcessorController>(DataProcessorController);
+    dataProcessorController = app.get<DataProcessorController>(
+      DataProcessorController,
+    );
   });
 
   describe('root', () => {

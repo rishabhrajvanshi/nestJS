@@ -7,8 +7,15 @@ import { join } from 'path';
 async function bootstrap() {
   const logger = new Logger('DataProcessor');
 
+  // Create HTTP application first
+  const httpApp = await NestFactory.create(DataProcessorModule);
+  await httpApp.listen(3002);
+  logger.log(
+    '🌐 Data Processor HTTP server is running on http://localhost:3002',
+  );
+
   // Create gRPC microservice
-  const app = await NestFactory.createMicroservice<MicroserviceOptions>(
+  const grpcApp = await NestFactory.createMicroservice<MicroserviceOptions>(
     DataProcessorModule,
     {
       transport: Transport.GRPC,
@@ -20,13 +27,9 @@ async function bootstrap() {
     },
   );
 
-  await app.listen();
+  await grpcApp.listen();
   logger.log('🚀 Data Processor gRPC server is running on localhost:50051');
-
-  // Also create HTTP server for health checks (optional)
-  const httpApp = await NestFactory.create(DataProcessorModule);
-  const httpPort = process.env.HTTP_PORT || 3002;
-  await httpApp.listen(httpPort);
-  logger.log(`📡 Data Processor HTTP server is running on http://localhost:${httpPort}`);
+  logger.log('🔍 Listening for ProcessUserData method calls...');
+  logger.log('📋 Ready to receive both HTTP and gRPC requests!');
 }
 bootstrap();

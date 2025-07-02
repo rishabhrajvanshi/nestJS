@@ -1,36 +1,10 @@
 import { Controller, Get, Logger } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
 import { DataProcessorService } from './data-processor.service';
-
-interface UserData {
-  name: string;
-  email: string;
-  age: number;
-  timestamp?: string;
-}
-
-interface DataProcessingRequest {
-  userData: UserData;
-  sourceApp: string;
-  requestId: string;
-}
-
-interface ProcessedData {
-  id: string;
-  name: string;
-  email: string;
-  age: number;
-  processedBy: string;
-  enrichedInfo: string;
-  timestamp: string;
-  processingTimestamp: string;
-}
-
-interface DataProcessingResponse {
-  success: boolean;
-  processedData?: ProcessedData;
-  message?: string;
-}
+import {
+  DataProcessingRequest,
+  DataProcessingResponse,
+} from 'my/shared';
 
 @Controller()
 export class DataProcessorController {
@@ -48,30 +22,35 @@ export class DataProcessorController {
     return {
       status: 'healthy',
       timestamp: new Date().toISOString(),
-      service: 'data-processor'
+      service: 'data-processor',
     };
   }
 
   @GrpcMethod('DataProcessingService', 'ProcessUserData')
-  async processUserData(request: DataProcessingRequest): Promise<DataProcessingResponse> {
+  async processUserData(
+    request: DataProcessingRequest,
+  ): Promise<DataProcessingResponse> {
     try {
-      this.logger.log(`Received gRPC request: ${request.requestId} from ${request.sourceApp}`);
-      
+      if (!request || !request.userData) {
+        throw new Error('Invalid request: missing userData');
+      }
+
+      this.logger.log(`Processing data for user: ${request.userData.name}`);
+
       // Process the data and save to Cassandra
-      const processedData = await this.dataProcessorService.processAndSaveUserData(request);
-      
-      this.logger.log(`Successfully processed and saved data for user: ${request.userData.name}`);
-      
+      const processedData =
+        await this.dataProcessorService.processAndSaveUserData(request);
+
       return {
         success: true,
         processedData,
-        message: 'Data processed and saved successfully'
+        message: 'Data processed and saved successfully',
       };
     } catch (error) {
       this.logger.error(`Error processing data: ${error.message}`);
       return {
         success: false,
-        message: `Error processing data: ${error.message}`
+        message: `Error processing data: ${error.message}`,
       };
     }
   }
@@ -90,7 +69,7 @@ export class DataProcessorController {
       this.logger.error(`Error retrieving users: ${error.message}`);
       return {
         success: false,
-        message: `Error retrieving users: ${error.message}`
+        message: `Error retrieving users: ${error.message}`,
       };
     }
   }

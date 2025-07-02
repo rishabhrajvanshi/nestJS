@@ -1,42 +1,17 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { Client, ClientGrpc } from '@nestjs/microservices';
-import { join } from 'path';
-import * as grpc from '@grpc/grpc-js';
-import * as protoLoader from '@grpc/proto-loader';
-import { promisify } from 'util';
-
-interface UserData {
-  name: string;
-  email: string;
-  age: number;
-  timestamp?: string;
-}
-
-interface DataProcessingRequest {
-  userData: UserData;
-  sourceApp: string;
-  requestId: string;
-}
-
-interface ProcessedData {
-  id: string;
-  name: string;
-  email: string;
-  age: number;
-  processedBy: string;
-  enrichedInfo: string;
-  timestamp: string;
-  processingTimestamp: string;
-}
-
-interface DataProcessingResponse {
-  success: boolean;
-  processedData?: ProcessedData;
-  message?: string;
-}
+import { Injectable, Logger, OnModuleInit, Inject } from '@nestjs/common';
+import { ClientGrpc } from '@nestjs/microservices';
+import { Observable } from 'rxjs';
+import {
+  UserData,
+  DataProcessingRequest,
+  ProcessedData,
+  DataProcessingResponse,
+} from 'my/shared';
 
 interface DataProcessingService {
-  ProcessUserData(request: DataProcessingRequest): Promise<DataProcessingResponse>;
+  ProcessUserData(
+    request: DataProcessingRequest,
+  ): Observable<DataProcessingResponse>;
 }
 
 @Injectable()
@@ -44,32 +19,17 @@ export class ApiGatewayService implements OnModuleInit {
   private readonly logger = new Logger(ApiGatewayService.name);
   private dataProcessingService: DataProcessingService;
 
-  async onModuleInit() {
+  constructor(
+    @Inject('DATA_PROCESSING_SERVICE') private readonly client: ClientGrpc,
+  ) {}
+
+  onModuleInit() {
     try {
-      // Load the proto file
-      const packageDefinition = protoLoader.loadSync(
-        join(process.cwd(), 'proto/data-processing.proto'),
-        {
-          keepCase: true,
-          longs: String,
-          enums: String,
-          defaults: true,
-          oneofs: true,
-        }
-      );
-
-      const protoDescriptor = grpc.loadPackageDefinition(packageDefinition) as any;
-      
-      // Create gRPC client
-      const client = new protoDescriptor.dataprocessing.DataProcessingService(
-        'localhost:50051',
-        grpc.credentials.createInsecure()
-      );
-
-      this.dataProcessingService = client;
+      this.dataProcessingService =
+        this.client.getService<DataProcessingService>('DataProcessingService');
       this.logger.log('gRPC client initialized successfully');
     } catch (error) {
-      this.logger.error('Failed to initialize gRPC client', error);
+      this.logger.error('Failed to initialize gRPC client:', error);
     }
   }
 
@@ -80,14 +40,12 @@ export class ApiGatewayService implements OnModuleInit {
   async processUserData(userData: UserData): Promise<ProcessedData> {
     try {
       const requestId = this.generateRequestId();
-      
+
       // Add timestamp to user data
       const enrichedUserData = {
         ...userData,
         timestamp: new Date().toISOString(),
       };
-
-      this.logger.log(`Sending gRPC request with ID: ${requestId}`);
 
       const request: DataProcessingRequest = {
         userData: enrichedUserData,
@@ -96,11 +54,12 @@ export class ApiGatewayService implements OnModuleInit {
       };
 
       // Call data processor via gRPC
-      const processUserDataAsync = promisify(this.dataProcessingService.ProcessUserData.bind(this.dataProcessingService));
-      const response = await processUserDataAsync(request) as DataProcessingResponse;
+      const response = await this.dataProcessingService
+        .ProcessUserData(request)
+        .toPromise();
 
-      if (!response.success) {
-        throw new Error(response.message || 'Data processing failed');
+      if (!response || !response.success) {
+        throw new Error(response?.message || 'Data processing failed');
       }
 
       this.logger.log(`Successfully processed data for user: ${userData.name}`);
@@ -113,16 +72,24 @@ export class ApiGatewayService implements OnModuleInit {
 
   async getAllProcessedUsers(): Promise<ProcessedData[]> {
     try {
-      // For this example, we'll call a simple endpoint on the data processor
-      // In a real implementation, you might want to add this to the proto definition
-      this.logger.log('Retrieving all processed users...');
-      
-      // This is a simplified version - in practice you'd add this to your gRPC service
-      // For now, return empty array or implement a REST call to data processor
-      return [];
+      // Make HTTP call to Data Processor's /users endpoint
+      const response = await fetch('http://localhost:3002/users');
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to retrieve users');
+      }
+
+      return result.data || [];
     } catch (error) {
       this.logger.error(`Error retrieving users: ${error.message}`);
-      throw error;
+      // Return empty array instead of throwing to gracefully handle the error
+      return [];
     }
   }
 

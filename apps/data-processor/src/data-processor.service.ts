@@ -1,29 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { CassandraService } from 'wp/cassandra';
-
-interface UserData {
-  name: string;
-  email: string;
-  age: number;
-  timestamp?: string;
-}
-
-interface DataProcessingRequest {
-  userData: UserData;
-  sourceApp: string;
-  requestId: string;
-}
-
-interface ProcessedData {
-  id: string;
-  name: string;
-  email: string;
-  age: number;
-  processedBy: string;
-  enrichedInfo: string;
-  timestamp: string;
-  processingTimestamp: string;
-}
+import { UserData, DataProcessingRequest, ProcessedData } from 'my/shared';
 
 @Injectable()
 export class DataProcessorService {
@@ -35,13 +12,15 @@ export class DataProcessorService {
     return 'Hello from Data Processor! Ready to process and store data.';
   }
 
-  async processAndSaveUserData(request: DataProcessingRequest): Promise<ProcessedData> {
+  async processAndSaveUserData(
+    request: DataProcessingRequest,
+  ): Promise<ProcessedData> {
     try {
-      const { userData, sourceApp, requestId } = request;
-      
+      const { userData, sourceApp } = request;
+
       // Add enrichment information
       const enrichedInfo = this.generateEnrichedInfo(userData, sourceApp);
-      
+
       // Create processed data object
       const processedData: ProcessedData = {
         id: '', // Will be set by Cassandra service
@@ -54,7 +33,9 @@ export class DataProcessorService {
         processingTimestamp: new Date().toISOString(),
       };
 
-      this.logger.log(`Processing data for user: ${userData.name} from ${sourceApp}`);
+      this.logger.log(
+        `Processing data for user: ${userData.name} from ${sourceApp}`,
+      );
 
       // Save to Cassandra
       const savedId = await this.cassandraService.saveProcessedData({
@@ -72,7 +53,9 @@ export class DataProcessorService {
       this.logger.log(`Successfully saved data with ID: ${savedId}`);
       return result;
     } catch (error) {
-      this.logger.error(`Error processing and saving user data: ${error.message}`);
+      this.logger.error(
+        `Error processing and saving user data: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -80,19 +63,25 @@ export class DataProcessorService {
   async getAllProcessedUsers(): Promise<ProcessedData[]> {
     try {
       this.logger.log('Retrieving all processed users from Cassandra');
-      
+
       const data = await this.cassandraService.getAllProcessedData();
-      
+
       // Convert Date objects to ISO strings for response
-      return data.map(item => ({
+      return data.map((item) => ({
         id: item.id || '',
         name: item.name,
         email: item.email,
         age: item.age,
         processedBy: item.processedBy,
         enrichedInfo: item.enrichedInfo,
-        timestamp: item.timestamp instanceof Date ? item.timestamp.toISOString() : item.timestamp?.toString() || '',
-        processingTimestamp: item.processingTimestamp instanceof Date ? item.processingTimestamp.toISOString() : item.processingTimestamp?.toString() || '',
+        timestamp:
+          item.timestamp instanceof Date
+            ? item.timestamp.toISOString()
+            : String(item.timestamp || ''),
+        processingTimestamp:
+          item.processingTimestamp instanceof Date
+            ? item.processingTimestamp.toISOString()
+            : String(item.processingTimestamp || ''),
       }));
     } catch (error) {
       this.logger.error(`Error retrieving users: ${error.message}`);
@@ -103,7 +92,7 @@ export class DataProcessorService {
   private generateEnrichedInfo(userData: UserData, sourceApp: string): string {
     const ageGroup = this.getAgeGroup(userData.age);
     const emailDomain = userData.email.split('@')[1];
-    
+
     return `User from ${sourceApp} | Age group: ${ageGroup} | Email domain: ${emailDomain} | Processed at: ${new Date().toISOString()}`;
   }
 

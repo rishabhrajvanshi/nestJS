@@ -70,7 +70,11 @@
     "coverageDirectory": "./coverage",
     "testEnvironment": "node",
     "roots": [
-      "<rootDir>/apps/"
-    ]
+      "<rootDir>/apps/",
+      "<rootDir>/libs/"
+    ],
+    "moduleNameMapper": {
+      "^wp/cassandra(|/.*)$": "<rootDir>/libs/cassandra/src/$1"
+    }
   }
 }

@@ -17,6 +17,13 @@
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false,
-    "paths": {}
+    "paths": {
+      "wp/cassandra": [
+        "libs/cassandra/src"
+      ],
+      "wp/cassandra/*": [
+        "libs/cassandra/src/*"
+      ]
+    }
   }
 }

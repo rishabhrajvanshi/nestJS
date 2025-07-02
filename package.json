@@ -74,6 +74,7 @@
       "<rootDir>/libs/"
     ],
     "moduleNameMapper": {
+      "^my/shared(|/.*)$": "<rootDir>/libs/shared/src/$1",
       "^wp/cassandra(|/.*)$": "<rootDir>/libs/cassandra/src/$1"
     }
   }

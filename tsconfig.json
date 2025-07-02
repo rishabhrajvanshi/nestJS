@@ -18,6 +18,12 @@
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false,
     "paths": {
+      "my/shared": [
+        "libs/shared/src"
+      ],
+      "my/shared/*": [
+        "libs/shared/src/*"
+      ],
       "wp/cassandra": [
         "libs/cassandra/src"
       ],

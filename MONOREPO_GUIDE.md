@@ -9,7 +9,6 @@ nestJS/
 ├── apps/
 │   ├── api-gateway/         # App 1: HTTP API (Port 3001)
 │   ├── data-processor/      # App 2: gRPC + HTTP Server (Port 50051 + 3002)
-│   └── nestJS/             # Original starter app (can be removed)
 ├── libs/
 │   ├── cassandra/          # Shared Cassandra service library
 │   └── shared/             # Shared types/interfaces
